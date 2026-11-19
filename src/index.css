@@ -1,0 +1,210 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/archivo/wdth.css";
+@import "@fontsource-variable/jetbrains-mono";
+@import "@fontsource-variable/noto-sans-devanagari";
+@import "lenis/dist/lenis.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+  Palette: paper, ink and a highlighter
+  paper  #F5F5F2  page background (neutral, not cream)
+  card   #FFFFFF  raised surfaces
+  well   #EBEBE7  inset surfaces: inputs, tracks, bubbles
+  ink    #131316  text and hairlines (at low alpha)
+  ink-2  #4F4F57  secondary text
+  ink-3  #74747C  meta text
+  sun    #FFD23F  highlighter. A fill behind ink text, never text on paper
+  sun-ink #8A6400 the rare accent that has to be text
+
+  Trace categories (validated on white, data marks only)
+  net #3690E3, script #BD8A0A, render #8A63DE, paint #0BAA6B
+*/
+
+/* Emitted as real CSS variables so a surface can locally flip to dark (see .surface-dark). */
+@theme {
+  --color-paper: #f5f5f2;
+  --color-card: #ffffff;
+  --color-well: #ebebe7;
+  --color-ink: #131316;
+  --color-ink-2: #4f4f57;
+  --color-ink-3: #74747c;
+  --color-sun: #ffd23f;
+  --color-sun-ink: #8a6400;
+  --color-net: #3690e3;
+  --color-script: #bd8a0a;
+  --color-render: #8a63de;
+  --color-paint: #0baa6b;
+  --color-good: #0e7f57;
+  --color-bad: #c8283f;
+}
+
+@theme inline {
+  --font-sans: "Archivo Variable", "Noto Sans Devanagari Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-sans);
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+  --font-deva: "Noto Sans Devanagari Variable", "Archivo Variable", sans-serif;
+
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  --animate-shimmer: shimmer 1.4s linear infinite;
+  --animate-heartbeat: heartbeat 2s ease-out infinite;
+}
+
+/* shadcn tokens mapped onto the palette */
+:root {
+  color-scheme: light;
+  --background: #f5f5f2;
+  --foreground: #131316;
+  --card-foreground: #131316;
+  --popover: #ffffff;
+  --popover-foreground: #131316;
+  --primary: #ffd23f;
+  --primary-foreground: #131316;
+  --secondary: #ebebe7;
+  --secondary-foreground: #131316;
+  --muted: #ebebe7;
+  --muted-foreground: #4f4f57;
+  --accent: #ebebe7;
+  --accent-foreground: #131316;
+  --destructive: #c8283f;
+  --border: rgb(19 19 22 / 0.1);
+  --input: rgb(19 19 22 / 0.14);
+  --ring: #131316;
+  --radius: 0.75rem;
+}
+
+/* A dark object on the light page: the code editor. */
+.surface-dark {
+  --color-card: #18181c;
+  --color-well: #222227;
+  --color-ink: #ecece8;
+  --color-ink-2: #b4b4bb;
+  --color-ink-3: #7c7c85;
+  color: var(--color-ink);
+  background: var(--color-card);
+}
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@keyframes heartbeat {
+  0% { box-shadow: 0 0 0 0 rgb(14 127 87 / 0.45); }
+  70% { box-shadow: 0 0 0 7px rgb(14 127 87 / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(14 127 87 / 0); }
+}
+
+@keyframes shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(3px); }
+  30%, 50%, 70% { transform: translateX(-5px); }
+  40%, 60% { transform: translateX(5px); }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    background: var(--color-paper);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-paper text-ink;
+    font-size: 1.0625rem;
+    line-height: 1.65;
+    font-variation-settings: "wdth" 100;
+    overflow-x: clip;
+  }
+  ::selection {
+    background: #ffd23f;
+    color: #131316;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 3px;
+  }
+  [lang="hi"],
+  [lang="mr"] {
+    font-family: var(--font-deva);
+  }
+}
+
+@layer components {
+  .skeleton {
+    background: linear-gradient(90deg, #e6e6e1 0%, #f2f2ee 45%, #e6e6e1 90%);
+    background-size: 200% 100%;
+    animation: var(--animate-shimmer);
+  }
+
+  .dot-grid {
+    background-image: radial-gradient(rgb(19 19 22 / 0.13) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+
+  .display {
+    font-variation-settings: "wdth" 112, "wght" 760;
+    letter-spacing: -0.025em;
+    line-height: 0.95;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .shake {
+    animation: shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
