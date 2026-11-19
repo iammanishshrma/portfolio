@@ -8,19 +8,41 @@ import {
   useTransform,
 } from "motion/react"
 import portrait from "@/assets/portrait.webp"
+import { CodeLines, PaintFlash, ReservedBox, useRenderPhase } from "@/components/hero/Source"
 import { cn } from "@/lib/utils"
 import { EASE_IN_OUT, EASE_OUT, useMediaQuery } from "@/lib/motion"
 
 const W = 720
 const H = 988
 
+const SOURCE = ["<img", '  className="portrait"', '  src="/portrait.webp"', '  alt="Manish Sharma"', "/>"]
+const SOURCE_COMPACT = ["<img", "  src={photo}", "/>"]
+
+const CLOSED = "inset(0 0 100% 0 round 14px)"
+const OPEN = "inset(0 0 0% 0 round 14px)"
+
 /**
- * The portrait paints in top to bottom behind a scan line, like the paint phase
- * in the trace beside it. On hover it tilts toward the cursor and shows a
- * DevTools-style "inspect element" label with its live rendered size.
+ * Before the render the portrait is a dashed reserved box holding its own <img>
+ * source. On render it paints in top to bottom behind a scan line, covering the
+ * code. On hover it tilts toward the cursor and shows a DevTools-style
+ * "inspect element" label with its live rendered size.
  */
-export function Portrait({ className, delay = 0.25 }: { className?: string; delay?: number }) {
+export function Portrait({
+  className,
+  delay = 0.25,
+  compact = false,
+  typing = [0.15, 0.6],
+}: {
+  className?: string
+  delay?: number
+  /** smaller source text for the inline placement */
+  compact?: boolean
+  /** progress window in which the source types itself */
+  typing?: [number, number]
+}) {
   const reduce = useReducedMotion()
+  const phase = useRenderPhase()
+  const play = phase?.rendered ?? true
   const fine = useMediaQuery("(hover: hover) and (pointer: fine)")
   const ref = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 0, h: 0 })
@@ -45,36 +67,51 @@ export function Portrait({ className, delay = 0.25 }: { className?: string; dela
   const imgX = useSpring(useTransform(px, [-0.5, 0.5], [10, -10]), spring)
   const imgY = useSpring(useTransform(py, [-0.5, 0.5], [8, -8]), spring)
 
-  const paint = reduce
-    ? {}
-    : {
-        initial: { clipPath: "inset(0 0 100% 0 round 14px)" },
-        animate: { clipPath: "inset(0 0 0% 0 round 14px)" },
-        transition: { duration: 1.15, delay, ease: EASE_IN_OUT },
-      }
-
   return (
     <motion.div
       ref={ref}
       className={cn("group relative select-none", className)}
-      style={{ rotateX, rotateY, transformPerspective: 900 }}
+      style={{ rotateX, rotateY, transformPerspective: 900, aspectRatio: `${W} / ${H}` }}
       onPointerMove={(e) => {
-        if (!fine || !ref.current) return
+        if (!fine || !play || !ref.current) return
         const r = ref.current.getBoundingClientRect()
         px.set((e.clientX - r.left) / r.width - 0.5)
         py.set((e.clientY - r.top) / r.height - 0.5)
       }}
-      onPointerEnter={() => fine && setInspecting(true)}
+      onPointerEnter={() => fine && play && setInspecting(true)}
       onPointerLeave={() => {
         px.set(0)
         py.set(0)
         setInspecting(false)
       }}
     >
+      {/* the source, underneath the photo so the paint covers it */}
+      <AnimatePresence initial={false}>
+        {!play && (
+          <motion.span
+            key="source"
+            aria-hidden
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, transition: { delay: delay + 1.2, duration: 0.2 } }}
+          >
+            <ReservedBox className="rounded-[14px]">
+              <CodeLines
+                lines={compact ? SOURCE_COMPACT : SOURCE}
+                from={typing[0]}
+                to={typing[1]}
+                className={compact ? "text-[0.62rem] sm:text-[0.7rem]" : "text-[0.78rem]"}
+              />
+            </ReservedBox>
+          </motion.span>
+        )}
+      </AnimatePresence>
+
       <motion.div
-        className="relative overflow-hidden rounded-[14px] bg-well ring-1 ring-ink/10"
-        style={{ aspectRatio: `${W} / ${H}` }}
-        {...paint}
+        className="absolute inset-0 overflow-hidden rounded-[14px] bg-well ring-1 ring-ink/10"
+        initial={reduce ? false : { clipPath: CLOSED }}
+        animate={{ clipPath: reduce || play ? OPEN : CLOSED }}
+        transition={play ? { duration: 1.15, delay, ease: EASE_IN_OUT } : { duration: 0.25 }}
       >
         <motion.img
           src={portrait}
@@ -86,8 +123,8 @@ export function Portrait({ className, delay = 0.25 }: { className?: string; dela
           className="absolute inset-0 h-full w-full scale-[1.06] object-cover"
           style={{ x: imgX, y: imgY }}
           initial={reduce ? false : { filter: "blur(12px)" }}
-          animate={{ filter: "blur(0px)" }}
-          transition={{ duration: 0.9, delay: delay + 0.35, ease: EASE_OUT }}
+          animate={{ filter: reduce || play ? "blur(0px)" : "blur(12px)" }}
+          transition={{ duration: 0.9, delay: play ? delay + 0.35 : 0, ease: EASE_OUT }}
         />
 
         {/* DevTools element highlight */}
@@ -105,9 +142,10 @@ export function Portrait({ className, delay = 0.25 }: { className?: string; dela
         </AnimatePresence>
       </motion.div>
 
-      {/* scan line that leads the paint */}
-      {!reduce && (
+      {/* scan line that leads the paint; remounts each render */}
+      {play && !reduce && (
         <motion.span
+          key={phase?.runId ?? 0}
           aria-hidden
           className="pointer-events-none absolute inset-x-0 h-[3px] rounded-full bg-sun"
           initial={{ top: "0%", opacity: 1 }}
@@ -118,6 +156,7 @@ export function Portrait({ className, delay = 0.25 }: { className?: string; dela
           }}
         />
       )}
+      {play && phase && <PaintFlash key={`flash-${phase.runId}`} delay={delay + 1.1} className="rounded-[18px]" />}
 
       <AnimatePresence>
         {inspecting && size.w > 0 && (

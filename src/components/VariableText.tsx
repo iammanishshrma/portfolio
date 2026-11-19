@@ -22,6 +22,10 @@ type Props = {
   delay?: number
   /** resting width and weight once the intro finishes */
   rest?: { wdth: number; wght: number }
+  /** drive the intro from outside; overrides `trigger` */
+  play?: boolean
+  /** letters rise into place; turn off to morph in place */
+  rise?: boolean
 }
 
 /**
@@ -37,10 +41,12 @@ export function VariableText({
   trigger = "mount",
   delay = 0,
   rest = { wdth: 100, wght: 760 },
+  play: playProp,
+  rise = true,
 }: Props) {
   const ref = useRef<HTMLHeadingElement>(null)
   const inView = useInView(ref, { once: true, amount: 0.4 })
-  const play = trigger === "mount" || inView
+  const play = playProp ?? (trigger === "mount" || inView)
   const mouseX = useMotionValue(-9999)
   const mouseY = useMotionValue(-9999)
   const finePointer = useMediaQuery("(hover: hover) and (pointer: fine)")
@@ -76,6 +82,7 @@ export function VariableText({
                 play={play}
                 delay={delay}
                 rest={rest}
+                rise={rise}
                 mouseX={mouseX}
                 mouseY={mouseY}
               />
@@ -93,6 +100,7 @@ function Letter({
   play,
   delay,
   rest,
+  rise,
   mouseX,
   mouseY,
 }: {
@@ -101,6 +109,7 @@ function Letter({
   play: boolean
   delay: number
   rest: { wdth: number; wght: number }
+  rise: boolean
   mouseX: MotionValue<number>
   mouseY: MotionValue<number>
 }) {
@@ -109,7 +118,10 @@ function Letter({
   const intro = useMotionValue(reduce ? 1 : 0)
 
   useEffect(() => {
-    if (!play) return
+    if (!play) {
+      intro.set(reduce ? 1 : 0)
+      return
+    }
     if (reduce) {
       intro.set(1)
       return
@@ -137,7 +149,7 @@ function Letter({
     return `"wdth" ${wdth.toFixed(1)}, "wght" ${wght.toFixed(0)}`
   })
   const opacity = useTransform(intro, [0, 0.35], [0, 1])
-  const y = useTransform(intro, (v) => `${(1 - v) * 55}%`)
+  const y = useTransform(intro, (v) => (rise ? `${(1 - v) * 55}%` : "0%"))
   const filter = useTransform(intro, (v) =>
     v > 0.995 ? "none" : `blur(${((1 - v) * 10).toFixed(1)}px)`
   )

@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react"
 import {
-  AnimatePresence,
   animate,
   motion,
-    useMotionValue,
+  useMotionValue,
   useReducedMotion,
   useTransform,
   type MotionValue,
@@ -13,6 +12,13 @@ import { ArrowDown, Download, Mail } from "lucide-react"
 import { VariableText } from "@/components/VariableText"
 import { RenderTrace } from "@/components/hero/RenderTrace"
 import { Portrait } from "@/components/hero/Portrait"
+import {
+  CodeLines,
+  RenderBlock,
+  RenderPhaseContext,
+  ReservedBox,
+  TypedLine,
+} from "@/components/hero/Source"
 import { profile } from "@/data/resume"
 import { EASE_OUT, HERO_REPLAY_EVENT } from "@/lib/motion"
 
@@ -69,28 +75,9 @@ export function Hero() {
       <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 sm:px-8">
         <RenderClock rendered={rendered} label={elapsedLabel} progress={progress} legacy={run.ms > 2000} instant={run.ms === 0} />
 
-        <AnimatePresence mode="wait" initial={false}>
-          {rendered ? (
-            <motion.div
-              key={`content-${run.id}`}
-              className="flex flex-1 flex-col"
-              initial={{ opacity: 1 }}
-              exit={{ opacity: 0, transition: { duration: 0.15 } }}
-            >
-              <HeroContent />
-            </motion.div>
-          ) : (
-            <motion.div
-              key={`skeleton-${run.id}`}
-              className="flex flex-1 flex-col"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0, filter: "blur(6px)", transition: { duration: 0.2 } }}
-            >
-              <HeroSkeleton />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <RenderPhaseContext.Provider value={{ rendered, progress, runId: run.id }}>
+          <HeroBody rendered={rendered} />
+        </RenderPhaseContext.Provider>
       </div>
     </section>
   )
@@ -148,141 +135,176 @@ const PORTRAIT_WIDE = "!absolute right-0 top-[-3.6rem] w-[clamp(260px,22vw,330px
 // Narrower screens: a byline photo beside the first paragraph.
 const PORTRAIT_INLINE = "w-28 shrink-0 sm:w-36 lg:w-32 xl:hidden"
 
+// Seconds after the render at which each block turns from code into view.
+const AT = { name: 0, portrait: 0.2, trace: 0.3, lede: 0.35, more: 0.45, actions: 0.55 }
+
+// The JSX each block is "written" as before it renders.
+const SOURCE = {
+  lede: ['<p className="lede">', "  {role} at {company}.", "  {years} years of React + TS.", "</p>"],
+  more: ['<p className="muted">', "  Led a team of {4} rebuilding {client}.", "</p>"],
+  actions: ['<Button to="#projects" primary />', '<Button to="#contact" />', "<a href={resume} download />"],
+  trace: ["<RenderTrace", '  title="PNB MetLife portal"', "  legacy={3.2}", "  rebuilt={1.6}", "/>"],
+}
+
+const CODE_TEXT = "text-[0.68rem] sm:text-[0.8rem]"
+
 const rise = {
-  hidden: { opacity: 0, y: 24, filter: "blur(8px)" },
-  show: (i: number) => ({
+  hidden: { opacity: 0, y: 14, filter: "blur(8px)", transition: { duration: 0.2 } },
+  show: (delay: number) => ({
     opacity: 1,
     y: 0,
     filter: "blur(0px)",
-    transition: { duration: 0.9, delay: 0.55 + i * 0.12, ease: EASE_OUT },
+    transition: { duration: 0.8, delay, ease: EASE_OUT },
   }),
 }
 
-function HeroContent() {
+function HeroBody({ rendered }: { rendered: boolean }) {
   const lenis = useLenis()
-  const go = (id: string) => (lenis ? lenis.scrollTo(`#${id}`, { offset: -24 }) : document.getElementById(id)?.scrollIntoView())
+  const go = (id: string) =>
+    lenis ? lenis.scrollTo(`#${id}`, { offset: -24 }) : document.getElementById(id)?.scrollIntoView()
+  const state = rendered ? "show" : "hidden"
 
   return (
-    <>
-      <div className="relative">
-        <VariableText
-          as="h1"
-          lines={["Manish", "Sharma"]}
-          rest={{ wdth: 100, wght: 780 }}
-          className="text-[clamp(4.25rem,24vw,11.5rem)] md:text-[clamp(4.25rem,18vw,11.5rem)] leading-[0.86] tracking-[-0.035em]"
-          lineClassName={(i) => (i === 1 ? "md:pl-[0.9em]" : "")}
-        />
-        <Portrait className={`${PORTRAIT_WIDE} hidden xl:block`} delay={0.2} />
+    <div className="flex flex-1 flex-col">
+      <div className="relative text-[clamp(4.25rem,24vw,11.5rem)] leading-[0.86] tracking-[-0.035em] md:text-[clamp(4.25rem,18vw,11.5rem)]">
+        <RenderBlock source={<NameSource />} delay={AT.name} className="w-fit">
+          <VariableText
+            as="h1"
+            lines={["Manish", "Sharma"]}
+            rest={{ wdth: 100, wght: 780 }}
+            play={rendered}
+            rise={false}
+            lineClassName={(i) => (i === 1 ? "md:pl-[0.9em]" : "")}
+          />
+        </RenderBlock>
+        <Portrait className={`${PORTRAIT_WIDE} hidden xl:block`} delay={AT.portrait} typing={[0.15, 0.6]} />
       </div>
 
       <div className="mt-10 grid flex-1 items-end gap-10 lg:mt-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)] lg:gap-16">
         <div className="max-w-[34rem]">
           <div className="flex items-start gap-4 sm:gap-6 xl:block">
-            <Portrait className={PORTRAIT_INLINE} delay={0.35} />
-            <motion.p
+            <Portrait className={PORTRAIT_INLINE} delay={AT.portrait} compact typing={[0.15, 0.55]} />
+            <RenderBlock
+              className="flex-1"
+              delay={AT.lede}
+              source={<CodeLines lines={SOURCE.lede} from={0.3} to={0.7} className={CODE_TEXT} />}
+            >
+              <motion.p
+                variants={rise}
+                initial="hidden"
+                animate={state}
+                custom={AT.lede}
+                className="text-lg leading-relaxed text-ink sm:text-[1.375rem]"
+              >
+                {profile.role[0].toUpperCase() + profile.role.slice(1)} and {profile.title.toLowerCase()} at{" "}
+                {profile.company}. For {profile.years} years I've built front ends in React and TypeScript.
+              </motion.p>
+            </RenderBlock>
+          </div>
+
+          <RenderBlock
+            className="mt-4"
+            delay={AT.more}
+            source={<CodeLines lines={SOURCE.more} from={0.45} to={0.8} className={CODE_TEXT} />}
+          >
+            <motion.p variants={rise} initial="hidden" animate={state} custom={AT.more} className="leading-relaxed text-ink-2">
+              Most recently I led a team of 4 that rebuilt PNB MetLife's 20-year-old Distribution and
+              Customer portals. This page renders the way those portals do now.
+            </motion.p>
+          </RenderBlock>
+
+          <RenderBlock
+            className="mt-7"
+            delay={AT.actions}
+            source={<CodeLines lines={SOURCE.actions} from={0.55} to={0.9} className={CODE_TEXT} />}
+          >
+            <motion.div
               variants={rise}
               initial="hidden"
-              animate="show"
-              custom={0}
-              className="text-lg leading-relaxed text-ink sm:text-[1.375rem]"
+              animate={state}
+              custom={AT.actions}
+              className="flex flex-wrap items-center gap-3"
             >
-              {profile.role[0].toUpperCase() + profile.role.slice(1)} and {profile.title.toLowerCase()} at{" "}
-              {profile.company}. For {profile.years} years I've built front ends in React and TypeScript.
-            </motion.p>
-          </div>
-          <motion.p
-            variants={rise}
-            initial="hidden"
-            animate="show"
-            custom={1}
-            className="mt-4 leading-relaxed text-ink-2"
-          >
-            Most recently I led a team of 4 that rebuilt PNB MetLife's 20-year-old Distribution and
-            Customer portals. This page renders the way those portals do now.
-          </motion.p>
-
-          <motion.div
-            variants={rise}
-            initial="hidden"
-            animate="show"
-            custom={2}
-            className="mt-7 flex flex-wrap items-center gap-3"
-          >
-            <a
-              href="#projects"
-              onClick={(e) => {
-                e.preventDefault()
-                go("projects")
-              }}
-              className="group inline-flex h-12 items-center gap-2 rounded-full bg-sun px-6 font-semibold text-ink transition-transform hover:-translate-y-0.5"
-            >
-              Try the project demos
-              <ArrowDown className="size-4 transition-transform group-hover:translate-y-0.5" />
-            </a>
-            <a
-              href="#contact"
-              onClick={(e) => {
-                e.preventDefault()
-                go("contact")
-              }}
-              className="inline-flex h-12 items-center gap-2 rounded-full border border-ink/15 px-5 text-ink transition-colors hover:border-ink/30 hover:bg-ink/5"
-            >
-              <Mail className="size-4" />
-              Get in touch
-            </a>
-            <a
-              href={profile.resume}
-              download
-              className="inline-flex h-12 items-center gap-2 rounded-full px-4 text-ink-2 transition-colors hover:text-ink"
-            >
-              <Download className="size-4" />
-              Resume (PDF)
-            </a>
-          </motion.div>
+              <a
+                href="#projects"
+                onClick={(e) => {
+                  e.preventDefault()
+                  go("projects")
+                }}
+                className="group inline-flex h-12 items-center gap-2 rounded-full bg-sun px-6 font-semibold text-ink transition-transform hover:-translate-y-0.5"
+              >
+                Try the project demos
+                <ArrowDown className="size-4 transition-transform group-hover:translate-y-0.5" />
+              </a>
+              <a
+                href="#contact"
+                onClick={(e) => {
+                  e.preventDefault()
+                  go("contact")
+                }}
+                className="inline-flex h-12 items-center gap-2 rounded-full border border-ink/15 px-5 text-ink transition-colors hover:border-ink/30 hover:bg-ink/5"
+              >
+                <Mail className="size-4" />
+                Get in touch
+              </a>
+              <a
+                href={profile.resume}
+                download
+                className="inline-flex h-12 items-center gap-2 rounded-full px-4 text-ink-2 transition-colors hover:text-ink"
+              >
+                <Download className="size-4" />
+                Resume (PDF)
+              </a>
+            </motion.div>
+          </RenderBlock>
         </div>
 
-        <motion.div
-          className="relative z-10"
-          initial={{ opacity: 0, y: 40, rotateX: 18, filter: "blur(10px)" }}
-          animate={{ opacity: 1, y: 0, rotateX: 0, filter: "blur(0px)" }}
-          transition={{ duration: 1.1, delay: 0.35, ease: EASE_OUT }}
-          style={{ transformPerspective: 1200 }}
+        <RenderBlock
+          className="z-10"
+          delay={AT.trace}
+          source={
+            <ReservedBox className="rounded-2xl">
+              <CodeLines lines={SOURCE.trace} from={0.35} to={0.95} className={CODE_TEXT} />
+            </ReservedBox>
+          }
         >
-          <RenderTrace play />
-        </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 24, rotateX: 14, filter: "blur(10px)" }}
+            animate={
+              rendered
+                ? { opacity: 1, y: 0, rotateX: 0, filter: "blur(0px)" }
+                : { opacity: 0, y: 24, rotateX: 14, filter: "blur(10px)" }
+            }
+            transition={rendered ? { duration: 1, delay: AT.trace, ease: EASE_OUT } : { duration: 0.2 }}
+            style={{ transformPerspective: 1200 }}
+          >
+            <RenderTrace play={rendered} />
+          </motion.div>
+        </RenderBlock>
       </div>
-    </>
+    </div>
   )
 }
 
-function HeroSkeleton() {
+/** The name as source: the opening tag, the words in faint mono at full size, the closing tag. */
+function NameSource() {
   return (
-    <div aria-hidden className="flex flex-1 flex-col">
-      <div className="relative space-y-[0.12em] text-[clamp(4.25rem,24vw,11.5rem)] md:text-[clamp(4.25rem,18vw,11.5rem)] leading-[0.86]">
-        <div className="skeleton h-[0.8em] w-[58%] rounded-2xl" />
-        <div className="skeleton h-[0.8em] w-[62%] rounded-2xl md:ml-[0.9em]" />
-        <div className={`${PORTRAIT_WIDE} skeleton hidden aspect-[720/988] rounded-[14px] xl:block`} />
-      </div>
-      <div className="mt-10 grid flex-1 items-end gap-10 lg:mt-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)] lg:gap-16">
-        <div className="max-w-[34rem] space-y-3">
-          <div className="flex items-start gap-4 sm:gap-6 xl:block">
-            <div className={`${PORTRAIT_INLINE} skeleton aspect-[720/988] rounded-[14px]`} />
-            <div className="flex-1 space-y-3">
-              <div className="skeleton h-5 w-full rounded-md" />
-              <div className="skeleton h-5 w-[92%] rounded-md" />
-              <div className="skeleton h-5 w-[60%] rounded-md" />
-            </div>
-          </div>
-          <div className="h-3" />
-          <div className="skeleton h-4 w-[95%] rounded-md" />
-          <div className="skeleton h-4 w-[70%] rounded-md" />
-          <div className="flex gap-3 pt-6">
-            <div className="skeleton h-12 w-[55%] max-w-52 rounded-full" />
-            <div className="skeleton h-12 w-[35%] max-w-36 rounded-full" />
-          </div>
-        </div>
-        <div className="skeleton h-[19rem] rounded-2xl" />
-      </div>
-    </div>
+    <>
+      <span className="absolute bottom-full left-0 mb-1 font-mono text-[0.78rem] leading-normal tracking-normal">
+        <TypedLine text={'<h1 className="display">'} from={0} to={0.1} />
+      </span>
+      <span className="block font-mono font-light tracking-[-0.05em] text-ink/25">
+        <TypedLine plain text="Manish" from={0.08} to={0.3} />
+        <span className="flex items-baseline md:pl-[0.9em]">
+          <TypedLine plain text="Sharma" from={0.3} to={0.5} />
+          <TypedLine
+            text="</h1>"
+            from={0.5}
+            to={0.56}
+            className="ml-3 font-mono text-[0.78rem] font-normal tracking-normal"
+          />
+        </span>
+      </span>
+    </>
   )
 }
